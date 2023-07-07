@@ -65,7 +65,7 @@ void WinMainCRTStartup() {
   if (!mutex) {
     DWORD last_error = ::GetLastError();
     if (last_error == ERROR_FILE_NOT_FOUND) {
-      mutex = CreateMutexW(nullptr, false, kMutexName);
+      mutex = ::CreateMutexW(nullptr, false, kMutexName);
 
       const HHOOK keyboard_hook = ::SetWindowsHookExW(
           WH_KEYBOARD_LL, &LowLevelKeyboardCallback, nullptr, 0ul);
@@ -85,4 +85,6 @@ void WinMainCRTStartup() {
     }
   }
   if (mutex != nullptr) ::ReleaseMutex(mutex);
+
+  ::ExitProcess(0);
 }
