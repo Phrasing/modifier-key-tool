@@ -3,12 +3,12 @@
 #define NOMINMAX
 #include <Windows.h>
 
-#include <unordered_map>
-
 namespace {
 constexpr const wchar_t kMutexName[] = L"10d92afe-e2dd-4dee-9a91-e24ad5d8c492";
 
-const std::unordered_map<uint32_t, uint32_t> _KeyMap = {
+#define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
+
+const unsigned char KeyMap[32][2] = {
     {0x57 /* W */, VK_UP},    {0x41 /* A */, VK_LEFT},
     {0x44 /* D */, VK_RIGHT}, {0x53 /* S */, VK_DOWN},
     {0x45 /* E */, VK_END},   {0x51 /* Q */, VK_HOME},
@@ -40,11 +40,12 @@ LRESULT LowLevelKeyboardCallback(int code, WPARAM wparam, LPARAM lparam) {
   }
 
   if (_RightShiftDown && is_key_down) {
-    const auto it = _KeyMap.find(input_event->vkCode);
-    if (it != _KeyMap.end()) {
-      ::keybd_event(VK_RSHIFT, 0, KEYEVENTF_KEYUP, 0);
-      ::keybd_event(it->second, 0, 0ul, 0);
-      return 1;
+    for (auto i = 0; i < ArrayCount(KeyMap); i++) {
+      if (KeyMap[i][0] == input_event->vkCode) {
+        ::keybd_event(VK_RSHIFT, 0, KEYEVENTF_KEYUP, 0);
+        ::keybd_event(KeyMap[i][1], 0, 0ul, 0);
+        return 1;
+      }
     }
   }
 
@@ -58,21 +59,15 @@ LRESULT LowLevelKeyboardCallback(int code, WPARAM wparam, LPARAM lparam) {
 }
 }  // namespace
 
-int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
-#ifdef _DEBUG
-  FILE* c_out = nullptr;
-  ::AllocConsole();
-  ::freopen_s(&c_out, "CONOUT$", "w", stdout);
-#endif  // !_DEBUG
-
-  auto mutex = ::OpenMutexW(MUTEX_ALL_ACCESS, false, kMutexName);
+void WinMainCRTStartup() {
+  HANDLE mutex = ::OpenMutexW(MUTEX_ALL_ACCESS, false, kMutexName);
 
   if (!mutex) {
-    auto last_error = ::GetLastError();
+    DWORD last_error = ::GetLastError();
     if (last_error == ERROR_FILE_NOT_FOUND) {
       mutex = CreateMutexW(nullptr, false, kMutexName);
 
-      const auto keyboard_hook = ::SetWindowsHookExW(
+      const HHOOK keyboard_hook = ::SetWindowsHookExW(
           WH_KEYBOARD_LL, &LowLevelKeyboardCallback, nullptr, 0ul);
 
       if (keyboard_hook != nullptr) {
@@ -90,5 +85,4 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
     }
   }
   if (mutex != nullptr) ::ReleaseMutex(mutex);
-  return EXIT_SUCCESS;
 }
